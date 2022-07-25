@@ -3,7 +3,6 @@
 
 from shutil import which
 from subprocess import run, Popen
-from time import sleep
 from typing import IO
 
 from termcolor import colored
@@ -12,25 +11,6 @@ from helpers.prefixes import err, info
 
 signaler = ''
 target_device = ''
-
-
-def signaler_handler() -> any:
-    max_tries = 6
-    tries = 0
-    while True:
-        global signaler
-        if not signaler:
-            tries = tries + 1
-            if tries == max_tries:
-                print(
-                    f'{err} Timeout when waiting for frida-server output, please, restart the script')
-                exit(1)
-            sleep(0.5)
-        else:
-            ret = signaler
-            break
-    signaler = ''
-    return ret
 
 
 def get_device() -> str:
@@ -92,14 +72,13 @@ def on_message(raw_message: dict, _):
             exit(1)
         global signaler
         signaler = raw_message['payload']
-        print(colored('f', color='grey', attrs=[
-            'bold']), raw_message['payload'])
+        print(colored('f', color='grey', attrs=['bold']), raw_message['payload'])
 
 
 def get_adb() -> str:
     adb_path = which('adb')
     if adb_path is None:
-        print(f'{err} Unable to find ADB in your PATH!')
+        print(f'{err} Unable to find ADB in your $PATH!')
         exit(1)
 
     return adb_path
