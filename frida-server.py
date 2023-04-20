@@ -4,9 +4,10 @@
 __author__ = 'Jonas "6a6f6a6f" Uliana'
 __copyright__ = "Copyright 2022, Hackerspace 016"
 
-import json
 import lzma
-import sys
+import os.path
+import random
+import string
 import tempfile
 from os import remove
 
@@ -19,11 +20,6 @@ from helpers.prefixes import err, bold, info, warn
 
 def main():
     init()
-
-    if sys.platform != 'darwin' or sys.platform.startswith('linux'):
-        print(f'{err} Your host device must be {bold("Linux or macOS")}!')
-        print(f'{info} Try running under WSL2 case you are using Windows.')
-        exit(1)
 
     device = get_device()
     print(f'{info} Using device {bold(device)} as the pwning host.')
@@ -58,6 +54,7 @@ def main():
         name = str(asset['name'])
         if name.startswith('frida-server') and 'android' in name and frida_abi in name:
             remote = asset['browser_download_url']
+            break
 
     if not remote:
         print(f'{err} Unable to found a suitable frida-server for your ABI!')
@@ -65,20 +62,30 @@ def main():
         exit(1)
 
     print(f'{info} Downloading latest frida-server for {arch}...')
-    file = tempfile.NamedTemporaryFile()
-    response = get(remote)
-    file.write(response.content)
+    
+    temp_dir = os.path.join(tempfile.gettempdir(), ''.join(random.choices(string.ascii_lowercase + string.digits, k=8)))
+    os.mkdir(temp_dir)
 
-    with lzma.open(file.name) as f1:  # 👀 rs
+    file = os.path.join(temp_dir, 'fs.zx')
+
+    response = get(remote)
+    response.raise_for_status()
+
+    with open(file, 'wb') as f:
+        f.write(response.content)
+
+    with lzma.open(file) as f1:  # 👀 rs
         buffer = f1.read()
         with open('frida-server', 'wb') as f2:
             f2.write(buffer)
-    file.close()
+
+    print(f'{info} frida-server downloaded and extracted at {temp_dir}')
+
     run_adb_command('push ./frida-server /data/local/tmp')
     remove('frida-server')
     print(f'{info} Starting frida-server...')
     run_adb_command('shell su -c "chmod +x /data/local/tmp/frida-server"')
-    run_adb_command('shell su -c "/data/local/tmp/frida-server -D"', True)
+    run_adb_command('shell su -c "./data/local/tmp/frida-server -D"', True)
     print(f'{info} frida-server {bold("running and up")}!')
 
 
